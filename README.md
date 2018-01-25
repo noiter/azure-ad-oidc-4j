@@ -27,7 +27,7 @@ From your shell or command line:
 
 * `$ git clone https://github.com/Azure-Samples/active-directory-java-webapp-openidconnect.git`
 * `$ cd active-directory-java-webapp-openidconnect`
-* `$ mvn compile -DgroupId=com.microsoft.azure -DartifactId=adal4jsample -DinteractiveMode=false`
+* `$ ./gradlew compile build`
 
 ### Step 5: Configure your web app using web.xml
 
@@ -37,9 +37,7 @@ Provided for simplicity, `web.xml` in the webapp/WEB-INF/ folder contains values
 
 From your shell or command line:
 
-* `$ mvn package`
-
-This will generate a `adal4jsample.war` file in your /targets directory. Deploy this war file using Tomcat or any other J2EE container solution. This WAR will automatically be hosted at `http://<yourserverhost>:<yourserverport>/adal4jsample/`
+* `$ ./gradlew package`
 
 Example: `http://localhost:8080/adal4jsample/`
 
