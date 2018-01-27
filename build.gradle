@@ -19,9 +19,6 @@ buildscript {
     }
 }
 
-repositories {
-}
-
 apply plugin: 'org.akhikhl.gretty'
 
 gretty {
