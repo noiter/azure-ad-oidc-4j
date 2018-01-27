@@ -59,41 +59,28 @@ public class BasicFilter implements Filter {
         clientSecret = config.getInitParameter("secret_key");
     }
 
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
 
         if (request instanceof HttpServletRequest) {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
             HttpServletResponse httpResponse = (HttpServletResponse) response;
             try {
-                String currentUri = request.getScheme()
-                        + "://"
-                        + request.getServerName()
-                        + ("http".equals(request.getScheme())
-                        && request.getServerPort() == 80
-                        || "https".equals(request.getScheme())
-                        && request.getServerPort() == 443 ? "" : ":"
-                        + request.getServerPort())
+                String currentUri = request.getScheme() + "://" + request.getServerName()
+                        + (isHTTPOrHTTPsRequest(request) ? "" : (":" + request.getServerPort()))
                         + httpRequest.getRequestURI();
                 String fullUrl = currentUri
-                        + (httpRequest.getQueryString() != null ? "?"
-                        + httpRequest.getQueryString() : "");
+                        + (httpRequest.getQueryString() == null ? "" : ("?" + httpRequest.getQueryString()));
                 // check if user has a session
                 if (!AuthHelper.isAuthenticated(httpRequest)) {
                     if (AuthHelper.containsAuthenticationData(httpRequest)) {
                         Map<String, String> params = new HashMap<String, String>();
                         for (String key : request.getParameterMap().keySet()) {
-                            params.put(key,
-                                    request.getParameterMap().get(key)[0]);
+                            params.put(key, request.getParameterMap().get(key)[0]);
                         }
-                        AuthenticationResponse authResponse = AuthenticationResponseParser
-                                .parse(new URI(fullUrl), params);
+                        AuthenticationResponse authResponse = AuthenticationResponseParser.parse(new URI(fullUrl), params);
                         if (AuthHelper.isAuthenticationSuccessful(authResponse)) {
-
                             AuthenticationSuccessResponse oidcResponse = (AuthenticationSuccessResponse) authResponse;
-                            AuthenticationResult result = getAccessToken(
-                                    oidcResponse.getAuthorizationCode(),
-                                    currentUri);
+                            AuthenticationResult result = getAccessToken(oidcResponse.getAuthorizationCode(), currentUri);
                             createSessionPrincipal(httpRequest, result);
                         } else {
                             AuthenticationErrorResponse oidcResponse = (AuthenticationErrorResponse) authResponse;
@@ -106,25 +93,21 @@ public class BasicFilter implements Filter {
                     } else {
                         // not authenticated
                         httpResponse.setStatus(302);
-                        httpResponse
-                                .sendRedirect(getRedirectUrl(currentUri));
+                        httpResponse.sendRedirect(getRedirectUrl(currentUri));
                         return;
                     }
                 } else {
                     // if authenticated, how to check for valid session?
-                    AuthenticationResult result = AuthHelper
-                            .getAuthSessionObject(httpRequest);
+                    AuthenticationResult result = AuthHelper.getAuthSessionObject(httpRequest);
 
                     if (httpRequest.getParameter("refresh") != null) {
-                        result = getAccessTokenFromRefreshToken(
-                                result.getRefreshToken(), currentUri);
+                        result = getAccessTokenFromRefreshToken(result.getRefreshToken(), currentUri);
                     } else {
                         if (httpRequest.getParameter("cc") != null) {
                             result = getAccessTokenFromClientCredentials();
                         } else {
                             if (result.getExpiresOnDate().before(new Date())) {
-                                result = getAccessTokenFromRefreshToken(
-                                        result.getRefreshToken(), currentUri);
+                                result = getAccessTokenFromRefreshToken(result.getRefreshToken(), currentUri);
                             }
                         }
                     }
@@ -143,16 +126,16 @@ public class BasicFilter implements Filter {
     public void destroy() { }
 
     private AuthenticationResult getAccessToken(AuthorizationCode authorizationCode, String currentUri) throws Throwable {
-        String authCode = authorizationCode.getValue();
-        ClientCredential credential = new ClientCredential(clientId, clientSecret);
-        AuthenticationContext context = null;
-        AuthenticationResult result = null;
-        ExecutorService service = null;
+        AuthenticationResult result;
+        ExecutorService service = Executors.newFixedThreadPool(1);
         try {
-            service = Executors.newFixedThreadPool(1);
-            context = new AuthenticationContext(authority + tenant + "/", true, service);
-            Future<AuthenticationResult> future =
-                    context.acquireTokenByAuthorizationCode(authCode, new URI(currentUri), credential, null);
+            AuthenticationContext context =
+                    new AuthenticationContext(authority + tenant + "/", true, service);
+            Future<AuthenticationResult> future = context.acquireTokenByAuthorizationCode(
+                    authorizationCode.getValue(),
+                    new URI(currentUri),
+                    new ClientCredential(clientId, clientSecret),
+                    null);
             result = future.get();
         } catch (ExecutionException e) {
             throw e.getCause();
@@ -180,14 +163,16 @@ public class BasicFilter implements Filter {
     }
 
     private AuthenticationResult getAccessTokenFromRefreshToken(String refreshToken, String currentUri) throws Throwable {
-        AuthenticationContext context = null;
-        AuthenticationResult result = null;
-        ExecutorService service = null;
+        AuthenticationResult result;
+        ExecutorService service = Executors.newFixedThreadPool(1);
         try {
-            service = Executors.newFixedThreadPool(1);
-            context = new AuthenticationContext(authority + tenant + "/", true, service);
+            AuthenticationContext context =
+                    new AuthenticationContext(authority + tenant + "/", true, service);
             Future<AuthenticationResult> future = context.acquireTokenByRefreshToken(
-                    refreshToken, new ClientCredential(clientId, clientSecret), null, null);
+                    refreshToken,
+                    new ClientCredential(clientId, clientSecret),
+                    null,
+                    null);
             result = future.get();
         } catch (ExecutionException e) {
             throw e.getCause();
@@ -202,18 +187,16 @@ public class BasicFilter implements Filter {
 
     }
 
-    private AuthenticationResult getAccessTokenFromClientCredentials()
-            throws Throwable {
-        AuthenticationContext context = null;
-        AuthenticationResult result = null;
-        ExecutorService service = null;
+    private AuthenticationResult getAccessTokenFromClientCredentials() throws Throwable {
+        AuthenticationResult result;
+        ExecutorService service = Executors.newFixedThreadPool(1);
         try {
-            service = Executors.newFixedThreadPool(1);
-            context = new AuthenticationContext(authority + tenant + "/", true,
-                    service);
+            AuthenticationContext context =
+                    new AuthenticationContext(authority + tenant + "/", true, service);
             Future<AuthenticationResult> future = context.acquireToken(
-                    "https://graph.windows.net", new ClientCredential(clientId,
-                            clientSecret), null);
+                    "https://graph.windows.net",
+                    new ClientCredential(clientId, clientSecret),
+                    null);
             result = future.get();
         } catch (ExecutionException e) {
             throw e.getCause();
@@ -227,4 +210,9 @@ public class BasicFilter implements Filter {
         return result;
     }
 
+
+    private static boolean isHTTPOrHTTPsRequest(ServletRequest request) {
+        return "http".equals(request.getScheme()) && request.getServerPort() == 80
+                || "https".equals(request.getScheme()) && request.getServerPort() == 443;
+    }
 }

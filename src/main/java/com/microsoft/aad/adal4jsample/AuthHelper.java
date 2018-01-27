@@ -39,24 +39,20 @@ public final class AuthHelper {
         return request.getSession().getAttribute(PRINCIPAL_SESSION_NAME) != null;
     }
 
-    public static AuthenticationResult getAuthSessionObject(
-            HttpServletRequest request) {
+    public static AuthenticationResult getAuthSessionObject(HttpServletRequest request) {
         return (AuthenticationResult) request.getSession().getAttribute(
                 PRINCIPAL_SESSION_NAME);
     }
 
-    public static boolean containsAuthenticationData(
-            HttpServletRequest httpRequest) {
+    public static boolean containsAuthenticationData(HttpServletRequest httpRequest) {
         Map<String, String[]> map = httpRequest.getParameterMap();
-        return httpRequest.getMethod().equalsIgnoreCase("POST") && (httpRequest.getParameterMap().containsKey(
-                        AuthParameterNames.ERROR)
-                        || httpRequest.getParameterMap().containsKey(
-                                AuthParameterNames.ID_TOKEN) || httpRequest
-                        .getParameterMap().containsKey(AuthParameterNames.CODE));
+        return httpRequest.getMethod().equalsIgnoreCase("POST") &&
+                (httpRequest.getParameterMap().containsKey(AuthParameterNames.ERROR)
+                        || httpRequest.getParameterMap().containsKey(AuthParameterNames.ID_TOKEN)
+                        || httpRequest.getParameterMap().containsKey(AuthParameterNames.CODE));
     }
 
-    public static boolean isAuthenticationSuccessful(
-            AuthenticationResponse authResponse) {
+    public static boolean isAuthenticationSuccessful(AuthenticationResponse authResponse) {
         return authResponse instanceof AuthenticationSuccessResponse;
     }
 }
